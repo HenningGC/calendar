@@ -27,7 +27,7 @@ The feed URLs never enter the repository: they only live in the `ICS_URLS` secre
 
 | Where | Name | Purpose |
 |---|---|---|
-| Secret | `ICS_URLS` | One feed per line (or comma separated). Optional label: `work=https://…/calendar.ics`. Without a label the Outlook tenant domain is used (`epam`, `apollogic`, …). |
+| Secret | `ICS_URLS` | One feed per line (or comma separated). Optional label: `Work=https://…/calendar.ics`. Without a label feeds are shown as *Calendar 1*, *Calendar 2*, … so no company name appears on the site. |
 | Variable | `PRIVACY` | `busy` → only Busy / Tentative / Out of office blocks · `titles` → event titles only (default) · `full` → titles, locations and descriptions |
 | Variable | `PAST_DAYS` | Days of history to include (default 90) |
 | Variable | `FUTURE_DAYS` | Days ahead to include (default 365) |

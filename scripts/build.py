@@ -10,8 +10,9 @@ static site into ./site:
 Configuration is taken from the environment:
 
     ICS_URLS     required. One feed per line or comma separated. A feed may be
-                 given as "Name=URL"; otherwise the name is derived from the
-                 Outlook tenant domain in the URL (or the host name).
+                 given as "Name=URL"; otherwise feeds are called "Calendar 1",
+                 "Calendar 2", ... so the tenant / company behind a feed is
+                 never exposed on the public site.
     PRIVACY      busy   -> only "Busy" / "Tentative" / "Out of office" blocks
                  titles -> event titles only (default)
                  full   -> titles, locations and descriptions
@@ -28,7 +29,6 @@ import re
 import shutil
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
 
 import recurring_ical_events
 import requests
@@ -74,17 +74,10 @@ def parse_sources(raw: str) -> list[tuple[str, str]]:
             name, url = name.strip(), url.strip()
         if url.lower().startswith("webcal://"):
             url = "https://" + url[len("webcal://"):]
-        sources.append((name or derive_name(url), url))
+        sources.append((name or f"Calendar {len(sources) + 1}", url))
     if not sources:
         sys.exit("ICS_URLS is empty - nothing to merge")
     return sources
-
-
-def derive_name(url: str) -> str:
-    match = re.search(r"@([A-Za-z0-9.-]+)/", url)
-    if match:
-        return match.group(1).split(".")[0]
-    return urlparse(url).hostname or "calendar"
 
 
 def fetch(url: str) -> Calendar:
