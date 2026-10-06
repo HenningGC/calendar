@@ -30,6 +30,7 @@ jobs:
         env:
           ICS_URLS: ${{ secrets.ICS_URLS }}
           PRIVACY: ${{ vars.PRIVACY }}
+          SHOW_FREE: ${{ vars.SHOW_FREE }}
           PAST_DAYS: ${{ vars.PAST_DAYS }}
           FUTURE_DAYS: ${{ vars.FUTURE_DAYS }}
         run: python scripts/build.py

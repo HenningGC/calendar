@@ -16,6 +16,7 @@ Configuration is taken from the environment:
     PRIVACY      busy   -> only "Busy" / "Tentative" / "Out of office" blocks
                  titles -> event titles only (default)
                  full   -> titles, locations and descriptions
+    SHOW_FREE    "true" to keep events marked "Show as: Free" (default: dropped)
     PAST_DAYS    how far back to include occurrences (default 90)
     FUTURE_DAYS  how far ahead to include occurrences (default 365)
 """
@@ -39,6 +40,7 @@ WEB_DIR = ROOT / "web"
 OUT_DIR = ROOT / "site"
 
 PRIVACY = (os.environ.get("PRIVACY") or "titles").strip().lower()
+SHOW_FREE = (os.environ.get("SHOW_FREE") or "false").strip().lower() in ("1", "true", "yes")
 PAST_DAYS = int(os.environ.get("PAST_DAYS") or 90)
 FUTURE_DAYS = int(os.environ.get("FUTURE_DAYS") or 365)
 HTTP_TIMEOUT = 60
@@ -142,6 +144,8 @@ def occurrence_records(name: str, cal: Calendar, window_start, window_end) -> li
             end_iso = end_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         status = busy_status(event)
+        if status == "free" and not SHOW_FREE:
+            continue
         title = text(event, "SUMMARY") or "(no title)"
         if title.casefold() in AVAILABILITY_TITLES:
             title = BUSY_TITLES[status]

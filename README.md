@@ -9,7 +9,7 @@ GitHub Pages and refreshed every hour by GitHub Actions.
 ## How it works
 
 1. `scripts/build.py` downloads every ICS feed listed in the `ICS_URLS` repository
-   secret, expands recurring events, drops cancelled ones, merges duplicates that
+   secret, expands recurring events, drops cancelled and *Free* ones, merges duplicates that
    appear in more than one calendar and writes:
    - `site/events.json` – occurrences for the web view (UTC timestamps)
    - `site/calendar.ics` – a merged feed other calendar apps can subscribe to
@@ -29,6 +29,7 @@ The feed URLs never enter the repository: they only live in the `ICS_URLS` secre
 |---|---|---|
 | Secret | `ICS_URLS` | One feed per line (or comma separated). Optional label: `Work=https://…/calendar.ics`. Without a label feeds are shown as *Calendar 1*, *Calendar 2*, … so no company name appears on the site. |
 | Variable | `PRIVACY` | `busy` → only Busy / Tentative / Out of office blocks · `titles` → event titles only (default) · `full` → titles, locations and descriptions |
+| Variable | `SHOW_FREE` | `true` to keep events marked *Show as: Free*. They are dropped by default. |
 | Variable | `PAST_DAYS` | Days of history to include (default 90) |
 | Variable | `FUTURE_DAYS` | Days ahead to include (default 365) |
 
