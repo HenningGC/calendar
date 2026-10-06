@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Henning's calendar</title>
+<meta name="description" content="Merged view of Henning Gruhl's work calendars, refreshed hourly.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%85%3C/text%3E%3C/svg%3E">
+<script src="https://cdn.jsdelivr.net/npm/luxon@3.7.2/build/global/luxon.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.21/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/luxon3@6.1.21/index.global.min.js"></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-muted: #f5f6f8;
+    --fg: #1a1d21;
+    --fg-muted: #5c6670;
+    --line: #e2e5e9;
+    --accent: #2563eb;
+    --fc-border-color: var(--line);
+    --fc-page-bg-color: var(--bg);
+    --fc-neutral-bg-color: var(--bg-muted);
+    --fc-today-bg-color: rgba(37, 99, 235, 0.08);
+    --fc-button-bg-color: var(--bg);
+    --fc-button-border-color: var(--line);
+    --fc-button-text-color: var(--fg);
+    --fc-button-hover-bg-color: var(--bg-muted);
+    --fc-button-hover-border-color: var(--line);
+    --fc-button-active-bg-color: var(--accent);
+    --fc-button-active-border-color: var(--accent);
+    --fc-list-event-hover-bg-color: var(--bg-muted);
+    --fc-now-indicator-color: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15181c;
+      --bg-muted: #1e2227;
+      --fg: #e8eaed;
+      --fg-muted: #9aa3ad;
+      --line: #2c3139;
+      --accent: #60a5fa;
+      --fc-today-bg-color: rgba(96, 165, 250, 0.12);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #15181c;
+    --bg-muted: #1e2227;
+    --fg: #e8eaed;
+    --fg-muted: #9aa3ad;
+    --line: #2c3139;
+    --accent: #60a5fa;
+    --fc-today-bg-color: rgba(96, 165, 250, 0.12);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 18px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 { font-size: 18px; margin: 0; font-weight: 650; }
+  header .meta { color: var(--fg-muted); font-size: 13px; }
+  .spacer { flex: 1; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; }
+  .legend label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+  .legend input { accent-color: var(--accent); margin: 0; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  select, button.plain {
+    font: inherit; font-size: 13px;
+    color: var(--fg); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 5px 8px; cursor: pointer;
+  }
+  button.plain:hover, select:hover { background: var(--bg-muted); }
+  main { flex: 1; min-height: 0; padding: 12px 16px 16px; }
+  #calendar { height: 100%; }
+  .fc { font-size: 14px; }
+  .fc .fc-toolbar-title { font-size: 18px; }
+  .fc .fc-button { text-transform: capitalize; box-shadow: none !important; }
+  .fc .fc-button-primary:not(:disabled).fc-button-active { color: #fff; }
+  .fc-event { cursor: pointer; }
+  .fc-event.status-tentative { opacity: 0.8; }
+  .fc-event.status-tentative:not(.fc-list-event) { border-style: dashed; }
+  .fc-event.status-free { opacity: 0.8; }
+  .fc .fc-daygrid-event { border-radius: 4px; }
+  .fc .fc-list-event-dot { border-width: 5px; }
+  #status {
+    position: fixed; inset: 0; display: grid; place-items: center;
+    background: var(--bg); color: var(--fg-muted); font-size: 15px; z-index: 5;
+  }
+  #status[hidden] { display: none; }
+  dialog {
+    max-width: min(520px, calc(100vw - 32px));
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--bg); color: var(--fg);
+    padding: 20px 22px; box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+  }
+  dialog::backdrop { background: rgba(0,0,0,0.35); }
+  dialog h2 { margin: 0 32px 6px 0; font-size: 17px; line-height: 1.3; }
+  dialog .close {
+    position: absolute; top: 10px; right: 10px;
+    border: 0; background: transparent; color: var(--fg-muted);
+    font-size: 20px; line-height: 1; cursor: pointer; padding: 4px 8px;
+  }
+  dialog dl { margin: 12px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; font-size: 14px; }
+  dialog dt { color: var(--fg-muted); }
+  dialog dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  dialog a { color: var(--accent); }
+  .badge {
+    display: inline-block; padding: 1px 8px; border-radius: 999px;
+    font-size: 12px; background: var(--bg-muted); color: var(--fg-muted);
+  }
+  @media (max-width: 700px) {
+    header { padding: 10px 16px; }
+    header h1 { font-size: 16px; }
+    main { padding: 8px 16px 12px; }
+    .fc .fc-toolbar { flex-direction: column; gap: 8px; }
+    .fc .fc-toolbar-title { font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Henning's calendar</h1>
+    <div class="meta" id="meta">Loading…</div>
+  </div>
+  <div class="legend" id="legend"></div>
+  <div class="spacer"></div>
+  <div class="controls">
+    <select id="tz" title="Display time zone" aria-label="Display time zone">
+      <option value="local">Browser time</option>
+      <option value="Europe/Berlin">Berlin</option>
+      <option value="Europe/Warsaw">Warsaw</option>
+      <option value="Europe/London">London</option>
+      <option value="UTC">UTC</option>
+      <option value="America/New_York">New York</option>
+      <option value="America/Los_Angeles">Los Angeles</option>
+      <option value="Asia/Kolkata">India</option>
+    </select>
+    <a id="subscribe" class="plain" href="#"><button class="plain" type="button">Subscribe (.ics)</button></a>
+    <button class="plain" id="copy" type="button" title="Copy the feed URL">Copy feed URL</button>
+  </div>
+</header>
+<main><div id="calendar"></div></main>
+<div id="status">Loading events…</div>
+
+<dialog id="details">
+  <button class="close" type="button" aria-label="Close">×</button>
+  <h2 id="d-title"></h2>
+  <dl>
+    <dt>When</dt><dd id="d-when"></dd>
+    <dt>Calendar</dt><dd id="d-source"></dd>
+    <dt>Status</dt><dd id="d-status"></dd>
+    <dt id="d-loc-dt">Where</dt><dd id="d-loc"></dd>
+    <dt id="d-desc-dt">Notes</dt><dd id="d-desc"></dd>
+  </dl>
+</dialog>
+
+<script>
+(function () {
+  const PALETTE = ['#2563eb', '#16a34a', '#d97706', '#9333ea', '#dc2626', '#0891b2', '#db2777'];
+  const STATUS_LABEL = { busy: 'Busy', tentative: 'Tentative', free: 'Free', oof: 'Out of office' };
+  const DateTime = luxon.DateTime;
+
+  const base = location.origin + location.pathname.replace(/[^/]*$/, '');
+  const feedHttps = base + 'calendar.ics';
+  const feedWebcal = feedHttps.replace(/^https?:/, 'webcal:');
+  document.getElementById('subscribe').href = feedWebcal;
+  document.getElementById('copy').addEventListener('click', async (e) => {
+    try { await navigator.clipboard.writeText(feedHttps); e.target.textContent = 'Copied!'; }
+    catch { prompt('Feed URL', feedHttps); }
+    setTimeout(() => { e.target.textContent = 'Copy feed URL'; }, 1500);
+  });
+
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  };
+
+  const tzSelect = document.getElementById('tz');
+  const savedTz = store.get('tz');
+  if (savedTz && [...tzSelect.options].some(o => o.value === savedTz)) tzSelect.value = savedTz;
+
+  let allEvents = [];
+  let sources = [];
+  const colorOf = {};
+  const enabled = new Set();
+
+  let calendar = null;
+
+  function createCalendar() {
+    calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+      timeZone: tzSelect.value,
+      initialView: window.innerWidth < 700 ? 'listWeek' : 'dayGridMonth',
+      headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,listWeek' },
+      buttonText: { today: 'Today', month: 'Month', week: 'Week', list: 'Agenda' },
+      views: { listWeek: { listDayFormat: { weekday: 'long', day: 'numeric', month: 'long' }, listDaySideFormat: false } },
+      height: '100%',
+      firstDay: 1,
+      nowIndicator: true,
+      navLinks: true,
+      dayMaxEvents: true,
+      eventDisplay: 'block',
+      slotMinTime: '06:00:00',
+      slotMaxTime: '22:00:00',
+      scrollTime: '08:00:00',
+      eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+      slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+      events: (info, success) => success(allEvents.filter(e => enabled.has(e.extendedProps.source))),
+      eventClick: (info) => { info.jsEvent.preventDefault(); showDetails(info.event); },
+    });
+    calendar.render();
+  }
+
+  tzSelect.addEventListener('change', () => {
+    if (calendar) calendar.setOption('timeZone', tzSelect.value);
+    store.set('tz', tzSelect.value);
+  });
+
+  function toFcEvent(e) {
+    const color = colorOf[e.source];
+    const base = {
+      id: e.id, title: e.title, start: e.start, end: e.end, allDay: e.allDay,
+      classNames: ['status-' + e.status],
+      extendedProps: { source: e.source, sources: e.sources, status: e.status, location: e.location || '', description: e.description || '' },
+    };
+    if (e.status === 'free') {
+      return { ...base, display: 'block', backgroundColor: 'transparent', borderColor: color, textColor: color };
+    }
+    return { ...base, backgroundColor: color, borderColor: color };
+  }
+
+  function buildLegend() {
+    const legend = document.getElementById('legend');
+    legend.innerHTML = '';
+    sources.forEach((s) => {
+      const label = document.createElement('label');
+      const box = document.createElement('input');
+      box.type = 'checkbox'; box.checked = true;
+      box.addEventListener('change', () => {
+        box.checked ? enabled.add(s.name) : enabled.delete(s.name);
+        calendar.refetchEvents();
+      });
+      const dot = document.createElement('span');
+      dot.className = 'dot'; dot.style.background = colorOf[s.name];
+      label.append(box, dot, document.createTextNode(s.name));
+      legend.appendChild(label);
+    });
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function linkify(s) {
+    return escapeHtml(s).replace(/https?:\/\/[^\s<>"']+/g, u => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
+  }
+
+  function showDetails(ev) {
+    const p = ev.extendedProps;
+    const zone = tzSelect.value === 'local' ? 'local' : tzSelect.value;
+    const start = DateTime.fromJSDate(ev.start, { zone: 'utc' }).setZone(zone);
+    const end = ev.end ? DateTime.fromJSDate(ev.end, { zone: 'utc' }).setZone(zone) : null;
+    let when;
+    if (ev.allDay) {
+      const last = end ? end.minus({ days: 1 }) : start;
+      when = last.hasSame(start, 'day')
+        ? start.toFormat('cccc, d LLLL yyyy')
+        : `${start.toFormat('d LLL yyyy')} – ${last.toFormat('d LLL yyyy')}`;
+    } else {
+      when = start.toFormat('cccc, d LLLL yyyy · HH:mm') + (end ? ' – ' + end.toFormat(end.hasSame(start, 'day') ? 'HH:mm' : 'd LLL HH:mm') : '')
+        + ` (${start.offsetNameShort})`;
+    }
+    document.getElementById('d-title').textContent = ev.title;
+    document.getElementById('d-when').textContent = when;
+    document.getElementById('d-source').textContent = p.sources.join(', ');
+    document.getElementById('d-status').innerHTML = `<span class="badge">${STATUS_LABEL[p.status] || p.status}</span>`;
+    const hasLoc = !!p.location, hasDesc = !!p.description;
+    document.getElementById('d-loc-dt').hidden = !hasLoc;
+    document.getElementById('d-loc').hidden = !hasLoc;
+    document.getElementById('d-loc').innerHTML = hasLoc ? linkify(p.location) : '';
+    document.getElementById('d-desc-dt').hidden = !hasDesc;
+    document.getElementById('d-desc').hidden = !hasDesc;
+    document.getElementById('d-desc').innerHTML = hasDesc ? linkify(p.description) : '';
+    document.getElementById('details').showModal();
+  }
+  const dialog = document.getElementById('details');
+  dialog.querySelector('.close').addEventListener('click', () => dialog.close());
+  dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
+
+  function timeAgo(iso) {
+    const diff = DateTime.fromISO(iso).diffNow().negate().shiftTo('days', 'hours', 'minutes').toObject();
+    if (diff.days >= 1) return `${Math.floor(diff.days)}d ago`;
+    if (diff.hours >= 1) return `${Math.floor(diff.hours)}h ago`;
+    return `${Math.max(0, Math.floor(diff.minutes))}m ago`;
+  }
+
+  Promise.all([
+    fetch('events.json', { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }),
+    fetch('meta.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : {}),
+  ]).then(([events, meta]) => {
+    sources = meta.sources || [...new Set(events.map(e => e.source))].map(name => ({ name }));
+    sources.forEach((s, i) => { colorOf[s.name] = PALETTE[i % PALETTE.length]; enabled.add(s.name); });
+    allEvents = events.map(toFcEvent);
+    buildLegend();
+    const updated = meta.generatedAt ? ` · updated ${timeAgo(meta.generatedAt)}` : '';
+    const privacy = meta.privacy === 'busy' ? ' · busy/free only' : '';
+    document.getElementById('meta').textContent = `${events.length} events from ${sources.length} calendar${sources.length === 1 ? '' : 's'}${updated}${privacy}`;
+    document.getElementById('status').hidden = true;
+    createCalendar();
+  }).catch((err) => {
+    document.getElementById('status').textContent = 'Could not load events (' + err.message + ').';
+  });
+})();
+</script>
+</body>
+</html>
