@@ -207,8 +207,6 @@ def finalize(record: dict) -> dict:
         "end": record["end"],
         "allDay": record["allDay"],
         "status": record["status"],
-        "source": record["sources"][0],
-        "sources": record["sources"],
     }
     if record["location"]:
         out["location"] = record["location"]
@@ -236,7 +234,6 @@ def write_ics(events: list[dict], generated_at: dt.datetime, path: Path) -> None
         else:
             ev.add("dtstart", dt.datetime.fromisoformat(item["start"]))
             ev.add("dtend", dt.datetime.fromisoformat(item["end"]))
-        ev.add("categories", item["sources"])
         ev.add("transp", "TRANSPARENT" if item["status"] == "free" else "OPAQUE")
         ev.add("x-microsoft-cdo-busystatus", item["status"].upper())
         if item.get("location"):
@@ -258,16 +255,12 @@ def main() -> None:
     window_end = (generated_at + dt.timedelta(days=FUTURE_DAYS)).date()
 
     records: list[dict] = []
-    per_source: list[dict] = []
     for name, url in sources:
         try:
             cal = fetch(url)
         except Exception as exc:  # fail the build so the previous deploy stays live
             sys.exit(f"Feed '{name}' could not be fetched: {type(exc).__name__}: {exc}")
-        found = occurrence_records(name, cal, window_start, window_end)
-        per_source.append({"name": name, "events": len(found)})
-        records.extend(found)
-        print(f"{name}: {len(found)} occurrences", file=sys.stderr)
+        records.extend(occurrence_records(name, cal, window_start, window_end))
 
     events = [finalize(apply_privacy(r)) for r in dedupe(records)]
     events.sort(key=lambda e: (e["start"], e["title"]))
@@ -284,7 +277,6 @@ def main() -> None:
                 "privacy": PRIVACY,
                 "rangeStart": window_start.isoformat(),
                 "rangeEnd": window_end.isoformat(),
-                "sources": per_source,
                 "events": len(events),
             },
             indent=2,

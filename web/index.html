@@ -71,10 +71,6 @@
   header h1 { font-size: 18px; margin: 0; font-weight: 650; }
   header .meta { color: var(--fg-muted); font-size: 13px; }
   .spacer { flex: 1; }
-  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; }
-  .legend label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
-  .legend input { accent-color: var(--accent); margin: 0; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
   .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   select, button.plain {
     font: inherit; font-size: 13px;
@@ -136,7 +132,6 @@
     <h1>Henning's calendar</h1>
     <div class="meta" id="meta">Loading…</div>
   </div>
-  <div class="legend" id="legend"></div>
   <div class="spacer"></div>
   <div class="controls">
     <select id="tz" title="Display time zone" aria-label="Display time zone">
@@ -161,7 +156,6 @@
   <h2 id="d-title"></h2>
   <dl>
     <dt>When</dt><dd id="d-when"></dd>
-    <dt>Calendar</dt><dd id="d-source"></dd>
     <dt>Status</dt><dd id="d-status"></dd>
     <dt id="d-loc-dt">Where</dt><dd id="d-loc"></dd>
     <dt id="d-desc-dt">Notes</dt><dd id="d-desc"></dd>
@@ -170,7 +164,7 @@
 
 <script>
 (function () {
-  const PALETTE = ['#2563eb', '#16a34a', '#d97706', '#9333ea', '#dc2626', '#0891b2', '#db2777'];
+  const EVENT_COLOR = '#2563eb';
   const STATUS_LABEL = { busy: 'Busy', tentative: 'Tentative', free: 'Free', oof: 'Out of office' };
   const DateTime = luxon.DateTime;
 
@@ -194,9 +188,6 @@
   if (savedTz && [...tzSelect.options].some(o => o.value === savedTz)) tzSelect.value = savedTz;
 
   let allEvents = [];
-  let sources = [];
-  const colorOf = {};
-  const enabled = new Set();
 
   let calendar = null;
 
@@ -218,7 +209,7 @@
       scrollTime: '08:00:00',
       eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
       slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
-      events: (info, success) => success(allEvents.filter(e => enabled.has(e.extendedProps.source))),
+      events: (info, success) => success(allEvents),
       eventClick: (info) => { info.jsEvent.preventDefault(); showDetails(info.event); },
     });
     calendar.render();
@@ -230,34 +221,15 @@
   });
 
   function toFcEvent(e) {
-    const color = colorOf[e.source];
     const base = {
       id: e.id, title: e.title, start: e.start, end: e.end, allDay: e.allDay,
       classNames: ['status-' + e.status],
-      extendedProps: { source: e.source, sources: e.sources, status: e.status, location: e.location || '', description: e.description || '' },
+      extendedProps: { status: e.status, location: e.location || '', description: e.description || '' },
     };
     if (e.status === 'free') {
-      return { ...base, display: 'block', backgroundColor: 'transparent', borderColor: color, textColor: color };
+      return { ...base, display: 'block', backgroundColor: 'transparent', borderColor: EVENT_COLOR, textColor: EVENT_COLOR };
     }
-    return { ...base, backgroundColor: color, borderColor: color };
-  }
-
-  function buildLegend() {
-    const legend = document.getElementById('legend');
-    legend.innerHTML = '';
-    sources.forEach((s) => {
-      const label = document.createElement('label');
-      const box = document.createElement('input');
-      box.type = 'checkbox'; box.checked = true;
-      box.addEventListener('change', () => {
-        box.checked ? enabled.add(s.name) : enabled.delete(s.name);
-        calendar.refetchEvents();
-      });
-      const dot = document.createElement('span');
-      dot.className = 'dot'; dot.style.background = colorOf[s.name];
-      label.append(box, dot, document.createTextNode(s.name));
-      legend.appendChild(label);
-    });
+    return { ...base, backgroundColor: EVENT_COLOR, borderColor: EVENT_COLOR };
   }
 
   function escapeHtml(s) {
@@ -284,7 +256,6 @@
     }
     document.getElementById('d-title').textContent = ev.title;
     document.getElementById('d-when').textContent = when;
-    document.getElementById('d-source').textContent = p.sources.join(', ');
     document.getElementById('d-status').innerHTML = `<span class="badge">${STATUS_LABEL[p.status] || p.status}</span>`;
     const hasLoc = !!p.location, hasDesc = !!p.description;
     document.getElementById('d-loc-dt').hidden = !hasLoc;
@@ -310,13 +281,9 @@
     fetch('events.json', { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }),
     fetch('meta.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : {}),
   ]).then(([events, meta]) => {
-    sources = meta.sources || [...new Set(events.map(e => e.source))].map(name => ({ name }));
-    sources.forEach((s, i) => { colorOf[s.name] = PALETTE[i % PALETTE.length]; enabled.add(s.name); });
     allEvents = events.map(toFcEvent);
-    buildLegend();
     const updated = meta.generatedAt ? ` · updated ${timeAgo(meta.generatedAt)}` : '';
-    const privacy = meta.privacy === 'busy' ? ' · busy/free only' : '';
-    document.getElementById('meta').textContent = `${events.length} events from ${sources.length} calendar${sources.length === 1 ? '' : 's'}${updated}${privacy}`;
+    document.getElementById('meta').textContent = `${events.length} events${updated}`;
     document.getElementById('status').hidden = true;
     createCalendar();
   }).catch((err) => {

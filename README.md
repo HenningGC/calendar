@@ -13,10 +13,11 @@ GitHub Pages and refreshed every hour by GitHub Actions.
    appear in more than one calendar and writes:
    - `site/events.json` – occurrences for the web view (UTC timestamps)
    - `site/calendar.ics` – a merged feed other calendar apps can subscribe to
-   - `site/meta.json` – build time, sources and counts
+   - `site/meta.json` – build time and event count
 2. `web/index.html` (copied into `site/`) renders the events with
-   [FullCalendar](https://fullcalendar.io/) – month, week and agenda views, a legend to
-   toggle each source calendar and a time-zone switcher.
+   [FullCalendar](https://fullcalendar.io/) – month, week and agenda views and a
+   time-zone switcher. All events share one colour and carry no hint of which feed
+   they came from, so the site never reveals how many calendars are merged.
 3. `.github/workflows/build.yml` runs the script hourly (and on every push or manual
    trigger) and deploys `site/` to GitHub Pages. If a feed cannot be fetched the build
    fails and the previously published site stays online.
@@ -27,7 +28,7 @@ The feed URLs never enter the repository: they only live in the `ICS_URLS` secre
 
 | Where | Name | Purpose |
 |---|---|---|
-| Secret | `ICS_URLS` | One feed per line (or comma separated). Optional label: `Work=https://…/calendar.ics`. Without a label feeds are shown as *Calendar 1*, *Calendar 2*, … so no company name appears on the site. |
+| Secret | `ICS_URLS` | One feed per line (or comma separated). An optional `Name=` prefix is accepted but only used in error messages. |
 | Variable | `PRIVACY` | `busy` → only Busy / Tentative / Out of office blocks · `titles` → event titles only (default) · `full` → titles, locations and descriptions |
 | Variable | `SHOW_FREE` | `true` to keep events marked *Show as: Free*. They are dropped by default. |
 | Variable | `PAST_DAYS` | Days of history to include (default 90) |
